@@ -36,3 +36,5 @@ src/main_predict_x0.py
 src/main_ood.py
 
 saved_models/
+
+.venv/
