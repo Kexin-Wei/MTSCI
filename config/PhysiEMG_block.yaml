@@ -7,7 +7,7 @@ train:
   beta: 5
 
 diffusion:
-  seqlen: 24
+  seqlen: 256
   layers: 4
   channels: 64
   nheads: 8

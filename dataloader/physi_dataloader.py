@@ -21,14 +21,13 @@ def generate_physi_train_dataloader(
     missing_pattern,
     batch_size=4,
     modality="cgm",
-    stride=None,
     proportion=0.8,
     seed=9101112,
     max_files=None,
     num_workers=0,
 ):
     windows, masks, groups = _load_split_windows(
-        dataset_path, modality, seq_len, stride, "train", proportion, seed, max_files
+        dataset_path, modality, seq_len, "train", proportion, seed, max_files
     )
     rng = np.random.default_rng(seed)
     tensors = _make_train_tensors(windows, masks, groups, missing_ratio, missing_pattern, rng)
@@ -44,7 +43,6 @@ def generate_physi_val_test_dataloader(
     batch_size=4,
     mode="val",
     modality="cgm",
-    stride=None,
     proportion=0.8,
     seed=None,
     max_files=None,
@@ -54,7 +52,7 @@ def generate_physi_val_test_dataloader(
         raise ValueError("mode must be val or test")
     seed = seed if seed is not None else (9101111 if mode == "val" else 9101110)
     windows, masks, _ = _load_split_windows(
-        dataset_path, modality, seq_len, stride, mode, proportion, seed, max_files
+        dataset_path, modality, seq_len, mode, proportion, seed, max_files
     )
     rng = np.random.default_rng(seed)
     tensors = _make_eval_tensors(windows, masks, missing_ratio, missing_pattern, rng, mode)
@@ -62,10 +60,9 @@ def generate_physi_val_test_dataloader(
     return DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
 
-def _load_split_windows(dataset_path, modality, seq_len, stride, split, proportion, seed, max_files=None):
+def _load_split_windows(dataset_path, modality, seq_len, split, proportion, seed, max_files=None):
     if modality not in MODALITY_DIRS:
         raise ValueError(f"Unknown Physi modality {modality!r}")
-    stride = int(stride or seq_len)
     root = Path(dataset_path) / MODALITY_DIRS[modality]
     if not root.exists():
         raise FileNotFoundError(f"Missing Physi directory: {root}")
@@ -90,7 +87,7 @@ def _load_split_windows(dataset_path, modality, seq_len, stride, split, proporti
         data = np.nan_to_num(record["data"].astype(np.float32, copy=False))
         observed = record.get("observed_mask", np.isfinite(data)).astype(np.float32, copy=False)
         length = int(record.get("length", data.shape[0]))
-        for start in range(0, max(length - seq_len + 1, 0), stride):
+        for start in range(0, max(length - seq_len + 1, 0), seq_len):
             end = start + seq_len
             windows.append(data[start:end] * observed[start:end])
             masks.append(observed[start:end])
