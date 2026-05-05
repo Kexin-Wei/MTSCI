@@ -17,6 +17,7 @@ sys.path.append("../dataloader")
 sys.path.append("../models")
 sys.path.append("../utils")
 from dataloader import *
+from physi_dataloader import generate_physi_train_dataloader, generate_physi_val_test_dataloader
 from model import MTSCI
 from utils import *
 
@@ -231,36 +232,68 @@ def main(args):
         os.makedirs(save_result_path)
 
     # load data
-    train_loader = generate_train_dataloader(
-        dataset_path,
-        seq_len,
-        missing_ratio=miss_rate,
-        missing_pattern=missing_pattern,
-        batch_size=batch_size,
-    )
-    val_loader = generate_val_test_dataloader(
-        dataset_path,
-        seq_len,
-        missing_ratio=val_miss_rate,
-        missing_pattern=missing_pattern,
-        batch_size=batch_size,
-        mode="val",
-    )
-    test_loader = generate_val_test_dataloader(
-        dataset_path,
-        seq_len,
-        missing_ratio=test_miss_rate,
-        missing_pattern=missing_pattern,
-        batch_size=batch_size,
-        mode="test",
-    )
+    if args.physi_modality:
+        train_loader = generate_physi_train_dataloader(
+            dataset_path,
+            seq_len,
+            missing_ratio=miss_rate,
+            missing_pattern=missing_pattern,
+            batch_size=batch_size,
+            modality=args.physi_modality,
+        )
+        val_loader = generate_physi_val_test_dataloader(
+            dataset_path,
+            seq_len,
+            missing_ratio=val_miss_rate,
+            missing_pattern=missing_pattern,
+            batch_size=batch_size,
+            mode="val",
+            modality=args.physi_modality,
+        )
+        test_loader = generate_physi_val_test_dataloader(
+            dataset_path,
+            seq_len,
+            missing_ratio=test_miss_rate,
+            missing_pattern=missing_pattern,
+            batch_size=batch_size,
+            mode="test",
+            modality=args.physi_modality,
+        )
+    else:
+        train_loader = generate_train_dataloader(
+            dataset_path,
+            seq_len,
+            missing_ratio=miss_rate,
+            missing_pattern=missing_pattern,
+            batch_size=batch_size,
+        )
+        val_loader = generate_val_test_dataloader(
+            dataset_path,
+            seq_len,
+            missing_ratio=val_miss_rate,
+            missing_pattern=missing_pattern,
+            batch_size=batch_size,
+            mode="val",
+        )
+        test_loader = generate_val_test_dataloader(
+            dataset_path,
+            seq_len,
+            missing_ratio=test_miss_rate,
+            missing_pattern=missing_pattern,
+            batch_size=batch_size,
+            mode="test",
+        )
     print("len train dataloader: ", len(train_loader))
     print("len val dataloader: ", len(val_loader))
     print("len test dataloader: ", len(test_loader))
-    with open(dataset_path + "/scaler.pkl", "rb") as fb:
-        mean, std = pk.load(fb)
-    mean = torch.from_numpy(mean).to(args.device)
-    std = torch.from_numpy(std).to(args.device)
+    if args.physi_modality:
+        mean = torch.zeros(args.feature, device=args.device)
+        std = torch.ones(args.feature, device=args.device)
+    else:
+        with open(dataset_path + "/scaler.pkl", "rb") as fb:
+            mean, std = pk.load(fb)
+        mean = torch.from_numpy(mean).to(args.device)
+        std = torch.from_numpy(std).to(args.device)
 
     model = MTSCI(
         config, args.device, target_dim=args.feature, seq_len=args.seq_len
@@ -319,6 +352,12 @@ if __name__ == "__main__":
     )
     parser.add_argument("--seq_len", type=int, default=24, help="sequence length")
     parser.add_argument("--feature", help="feature nums", type=int, default=7)
+    parser.add_argument(
+        "--physi_modality",
+        choices=["cgm", "ecg", "eeg", "emg"],
+        default=None,
+        help="Use Physi post-processed npy files instead of MTSCI pkl datasets.",
+    )
     parser.add_argument(
         "--missing_pattern",
         type=str,
